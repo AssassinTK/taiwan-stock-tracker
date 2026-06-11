@@ -564,40 +564,68 @@ export default function Home() {
                     <div className="text-[11px] font-bold" style={{ color: "#2ecc71" }}>{Math.round(100 - (pnlRows.length > 0 ? profitPct : upPct))}%</div>
                   </div>
                 </div>
-                <div className="flex-1 ml-6">
+                <div className="flex-1 ml-5">
                   {pnlRows.length > 0 ? (
                     <>
-                      <div className="text-[10px] text-gray-500 mb-2 flex items-center gap-1">
-                        <span style={{ color: "#e74c3c" }}>■</span>
-                        <span style={{ color: "#2ecc71" }}>■</span>
-                        盈虧市值估比
-                      </div>
-                      <div className="space-y-2">
-                        <div className="pl-2 border-l-2 border-[#e74c3c]">
-                          <div className="text-[11px] text-gray-400">獲利檔數：<span style={{ color: "#e74c3c" }} className="font-medium">{profits.length} 檔</span></div>
-                          <div className="text-[11px] text-gray-400">獲利金額：<span style={{ color: "#e74c3c" }} className="font-medium">{fmtNum(totalProfit)} 元</span></div>
+                      <div className="text-[9px] text-gray-600 mb-2.5 font-medium tracking-wide uppercase">盈虧市值估比</div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: "#e74c3c", backgroundColor: "#2a1010" }}>獲利</span>
+                            <span className="text-[10px] tabular-nums" style={{ color: "#e74c3c" }}>{profits.length} 檔 · {fmtNum(totalProfit)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {profits.map((r) => (
+                              <span key={r.symbol} className="text-[9px] px-1.5 py-0.5 rounded font-medium tabular-nums" style={{ color: "#e74c3c", backgroundColor: "#1e0a0a" }}>
+                                {r.name} {fmtPct(r.totalPnlPct)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <div className="pl-2 border-l-2 border-[#2ecc71]">
-                          <div className="text-[11px] text-gray-400">虧損檔數：<span style={{ color: "#2ecc71" }} className="font-medium">{losses.length} 檔</span></div>
-                          <div className="text-[11px] text-gray-400">虧損金額：<span style={{ color: "#2ecc71" }} className="font-medium">{fmtNum(totalLoss)} 元</span></div>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: "#2ecc71", backgroundColor: "#0d2010" }}>虧損</span>
+                            <span className="text-[10px] tabular-nums" style={{ color: "#2ecc71" }}>{losses.length} 檔 · {fmtNum(totalLoss)}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {losses.map((r) => (
+                              <span key={r.symbol} className="text-[9px] px-1.5 py-0.5 rounded font-medium tabular-nums" style={{ color: "#2ecc71", backgroundColor: "#091a0c" }}>
+                                {r.name} {fmtPct(r.totalPnlPct)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="text-[10px] text-gray-500 mb-2 flex items-center gap-1">
-                        <span style={{ color: "#e74c3c" }}>■</span>
-                        <span style={{ color: "#2ecc71" }}>■</span>
-                        今日即時漲跌
-                      </div>
-                      <div className="space-y-2">
-                        <div className="pl-2 border-l-2 border-[#e74c3c]">
-                          <div className="text-[11px] text-gray-400">上漲：<span style={{ color: "#e74c3c" }} className="font-medium">{upRows.length} 檔</span></div>
-                          <div className="text-[11px] text-gray-400">最大漲幅：<span style={{ color: "#e74c3c" }} className="font-medium">{upRows.length > 0 ? fmtPct(Math.max(...upRows.map((r) => r.changePercent))) : "—"}</span></div>
+                      <div className="text-[9px] text-gray-600 mb-2.5 font-medium tracking-wide uppercase">今日即時漲跌</div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: "#e74c3c", backgroundColor: "#2a1010" }}>上漲</span>
+                            <span className="text-[10px] tabular-nums" style={{ color: "#e74c3c" }}>{upRows.length} 檔</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {upRows.map((r) => (
+                              <span key={r.symbol} className="text-[9px] px-1.5 py-0.5 rounded font-medium tabular-nums" style={{ color: "#e74c3c", backgroundColor: "#1e0a0a" }}>
+                                {r.name} {fmtPct(r.changePercent)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <div className="pl-2 border-l-2 border-[#2ecc71]">
-                          <div className="text-[11px] text-gray-400">下跌：<span style={{ color: "#2ecc71" }} className="font-medium">{downRows.length} 檔</span></div>
-                          <div className="text-[11px] text-gray-400">最大跌幅：<span style={{ color: "#2ecc71" }} className="font-medium">{downRows.length > 0 ? fmtPct(Math.min(...downRows.map((r) => r.changePercent))) : "—"}</span></div>
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: "#2ecc71", backgroundColor: "#0d2010" }}>下跌</span>
+                            <span className="text-[10px] tabular-nums" style={{ color: "#2ecc71" }}>{downRows.length} 檔</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {downRows.map((r) => (
+                              <span key={r.symbol} className="text-[9px] px-1.5 py-0.5 rounded font-medium tabular-nums" style={{ color: "#2ecc71", backgroundColor: "#091a0c" }}>
+                                {r.name} {fmtPct(r.changePercent)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </>
