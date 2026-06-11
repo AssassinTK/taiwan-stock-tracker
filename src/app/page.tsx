@@ -65,7 +65,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("庫存股");
   const [activeBottom, setActiveBottom] = useState<BottomNav>("庫存股");
   const [selectedSymbol, setSelectedSymbol] = useState("2330");
-  const [marketIndex, setMarketIndex] = useState<{ name: string; value: string; change: string; pct: string }[]>([]);
+  const [marketIndex, setMarketIndex] = useState<{ name: string; value: string; change: string; pct: string; up: boolean }[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addSymbol, setAddSymbol] = useState("");
@@ -96,17 +96,8 @@ export default function Home() {
 
   const fetchMarket = useCallback(async () => {
     try {
-      const res = await fetch("https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX");
-      if (!res.ok) return;
-      const data = await res.json();
-      const targets = ["加權股價指數", "未含金融保險股指數", "電子類指數", "金融保險類指數"];
-      const rows = targets.map((t) => {
-        const row = data.find((d: Record<string, string>) => d["指數名稱"]?.includes(t.replace("加權股價", "").trim()) || d["指數名稱"] === t);
-        if (!row) return null;
-        const pct = parseFloat(row["漲跌百分比"] || "0");
-        return { name: row["指數名稱"], value: row["收盤指數"] || row["最新指數"] || "—", change: row["漲跌點數"] || "—", pct: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` };
-      }).filter(Boolean) as { name: string; value: string; change: string; pct: string }[];
-      setMarketIndex(rows);
+      const res = await fetch("/api/market");
+      if (res.ok) setMarketIndex(await res.json());
     } catch { /**/ }
   }, []);
 
@@ -233,8 +224,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Sub tabs */}
-        <div className="flex border-t border-[#222]">
+        {/* Sub tabs - hide when on standalone pages */}
+        {!["大盤", "自選股", "選股"].includes(activeBottom) && <div className="flex border-t border-[#222]">
           {(["庫存股", "K線圖", "新聞"] as Tab[]).map((t) => (
             <button key={t} onClick={() => setActiveTab(t)}
               className={`flex-1 py-2 text-xs font-medium border-b-2 transition-colors ${
@@ -245,7 +236,7 @@ export default function Home() {
               {t}
             </button>
           ))}
-        </div>
+        </div>}
       </header>
 
       {/* ── Main ── */}
@@ -259,8 +250,7 @@ export default function Home() {
               {marketIndex.length === 0
                 ? <div className="text-center text-gray-600 py-8">指數載入中...</div>
                 : marketIndex.map((m) => {
-                  const up = m.pct.startsWith("+");
-                  const color = up ? "#e74c3c" : "#2ecc71";
+                  const color = m.up ? "#e74c3c" : "#2ecc71";
                   return (
                     <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#222] last:border-0">
                       <div>

@@ -11,6 +11,7 @@
   "dependencies": {
     "@fugle/marketdata": "^1.4.2",
     "date-fns": "^4.4.0",
+    "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.17.0",
     "next": "15.5.19",
     "react": "19.1.0",
