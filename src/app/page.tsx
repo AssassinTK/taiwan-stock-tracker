@@ -15,6 +15,8 @@ const DEFAULT_WATCHLIST: WatchlistItem[] = [
 type Tab = "庫存股" | "K線圖" | "新聞";
 type BottomNav = "庫存股" | "自選股" | "選股" | "大盤" | "動向" | "K線";
 type SortKey = "name" | "todayPnl" | "change" | "totalPnl";
+interface MarketItem { label: string; symbol: string; price: string; change: string; pct: string; up: boolean | null; }
+interface SectorItem { name: string; pct: string; up?: boolean; }
 
 function useLocalStorage<T>(key: string, init: T) {
   const [val, setVal] = useState<T>(init);
@@ -66,6 +68,10 @@ export default function Home() {
   const [activeBottom, setActiveBottom] = useState<BottomNav>("庫存股");
   const [selectedSymbol, setSelectedSymbol] = useState("2330");
   const [marketIndex, setMarketIndex] = useState<{ name: string; value: string; change: string; pct: string; up: boolean }[]>([]);
+  const [marketTab, setMarketTab] = useState<"台灣指數" | "美股行情" | "產業即時">("台灣指數");
+  const [usMarket, setUsMarket] = useState<{ futures: MarketItem[]; indices: MarketItem[] } | null>(null);
+  const [sectors, setSectors] = useState<SectorItem[]>([]);
+  const [sectorSort, setSectorSort] = useState<"漲幅" | "跌幅">("漲幅");
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addSymbol, setAddSymbol] = useState("");
@@ -101,7 +107,21 @@ export default function Home() {
     } catch { /**/ }
   }, []);
 
-  useEffect(() => { fetchQuotes(); fetchNews(); fetchMarket(); }, [fetchQuotes, fetchNews, fetchMarket]);
+  const fetchUsMarket = useCallback(async () => {
+    try {
+      const res = await fetch("/api/us-market");
+      if (res.ok) setUsMarket(await res.json());
+    } catch { /**/ }
+  }, []);
+
+  const fetchSectors = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sectors");
+      if (res.ok) setSectors(await res.json());
+    } catch { /**/ }
+  }, []);
+
+  useEffect(() => { fetchQuotes(); fetchNews(); fetchMarket(); fetchUsMarket(); fetchSectors(); }, [fetchQuotes, fetchNews, fetchMarket, fetchUsMarket, fetchSectors]);
   useEffect(() => {
     intervalRef.current = setInterval(fetchQuotes, 10000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -244,40 +264,161 @@ export default function Home() {
 
         {/* ── 大盤 ── */}
         {activeBottom === "大盤" && (
-          <div className="p-3 space-y-3">
-            <div className="bg-[#1a1a1a] rounded-xl p-4">
-              <div className="text-xs text-gray-400 mb-3 flex items-center gap-1"><Globe size={12} /> 台股大盤指數</div>
-              {marketIndex.length === 0
-                ? <div className="text-center text-gray-600 py-8">指數載入中...</div>
-                : marketIndex.map((m) => {
-                  const color = m.up ? "#e74c3c" : "#2ecc71";
-                  return (
-                    <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#222] last:border-0">
-                      <div>
-                        <div className="text-sm font-medium text-white">{m.name}</div>
-                        <div className="text-[11px] text-gray-500">漲跌 {m.change}</div>
+          <div>
+            {/* 橫向 sub-tabs */}
+            <div className="flex overflow-x-auto border-b border-[#222] bg-[#111] scrollbar-hide">
+              {(["台灣指數", "美股行情", "產業即時"] as const).map((t) => (
+                <button key={t} onClick={() => setMarketTab(t)}
+                  className={`px-4 py-2.5 text-sm whitespace-nowrap font-medium transition-colors border-b-2 ${
+                    marketTab === t ? "border-[#e07000] text-white" : "border-transparent text-gray-500"
+                  }`}>{t}</button>
+              ))}
+            </div>
+
+            {/* ── 台灣指數 ── */}
+            {marketTab === "台灣指數" && (
+              <div className="pb-4">
+                {/* 3-box 指數 */}
+                <div className="grid grid-cols-3 gap-0 border-b border-[#222]">
+                  {marketIndex.length === 0
+                    ? [1,2,3].map((i) => <div key={i} className="p-3 border-r border-[#222] last:border-0 animate-pulse"><div className="h-3 bg-[#222] rounded mb-2 w-16"/><div className="h-5 bg-[#222] rounded"/></div>)
+                    : marketIndex.slice(0,3).map((m, i) => (
+                      <div key={m.name} className={`p-3 ${i === 2 ? "border-l-2 border-[#e07000] bg-[#1a1505]" : "border-r border-[#222]"}`}>
+                        <div className="text-[10px] text-gray-500 mb-1">{m.name}</div>
+                        <div className="text-[16px] font-bold tabular-nums" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</div>
+                        <div className="text-[11px] mt-0.5" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>
+                          {m.up ? "▲" : "▼"}{m.change}({m.pct})
+                        </div>
                       </div>
+                    ))
+                  }
+                </div>
+                {/* 焦點快訊 */}
+                <div className="px-4 pt-4 pb-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">焦點快訊</span>
+                    <span className="text-xs text-[#e07000]">更多 &gt;</span>
+                  </div>
+                  {news.slice(0, 3).map((n, i) => (
+                    <div key={n.id} className="flex items-start gap-3 py-2.5 border-b border-[#1a1a1a]">
+                      <span className="text-[#e07000] text-sm font-bold w-6 flex-shrink-0">{String(i+1).padStart(2,"0")}</span>
+                      <span className="text-sm text-white leading-snug flex-1">{n.title}</span>
+                      <span className="text-[10px] text-gray-500 whitespace-nowrap">{n.source?.split("·")[1]?.trim() ?? ""}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* 指數明細 */}
+                <div className="px-4 pt-2">
+                  {marketIndex.slice(1).map((m) => (
+                    <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#1a1a1a]">
+                      <span className="text-sm text-gray-300">{m.name} &gt;</span>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-white tabular-nums">{m.value}</div>
-                        <div className="inline-block text-[11px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: color }}>{m.pct}</div>
+                        <span className="text-base font-bold tabular-nums mr-3" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</span>
+                        <span className="text-sm" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>
+                          {m.up ? "▲" : "▼"}{m.change}({m.pct})
+                        </span>
                       </div>
                     </div>
-                  );
-                })
-              }
-            </div>
-            <div className="bg-[#1a1a1a] rounded-xl p-4">
-              <div className="text-xs text-gray-400 mb-3">📊 持股板塊分布</div>
-              {watchlistSectors.length === 0
-                ? <div className="text-gray-600 text-sm text-center py-4">新增含板塊標籤的持股後顯示</div>
-                : [...new Set(watchlistSectors)].map((s) => (
-                  <div key={s} className="flex items-center gap-2 py-2 border-b border-[#222] last:border-0">
-                    <span className="w-2 h-2 rounded-full bg-[#e07000]" />
-                    <span className="text-sm text-white">{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── 美股行情 ── */}
+            {marketTab === "美股行情" && (
+              <div className="pb-4">
+                {/* 期貨 3-box */}
+                <div className="grid grid-cols-3 gap-0 border-b border-[#222]">
+                  {(!usMarket?.futures?.length ? [1,2,3] : usMarket.futures).map((item, i) => {
+                    if (typeof item === "number") return <div key={i} className="p-3 border-r border-[#222] last:border-0 animate-pulse"><div className="h-3 bg-[#222] rounded mb-2 w-16"/><div className="h-5 bg-[#222] rounded"/></div>;
+                    const m = item as MarketItem;
+                    return (
+                      <div key={m.label} className={`p-3 ${i === 0 ? "border-2 border-[#e07000] bg-[#1a1505]" : "border-r border-[#222]"}`}>
+                        <div className="text-[10px] text-gray-500 mb-1">{m.label}</div>
+                        <div className="text-[15px] font-bold tabular-nums" style={{ color: m.up ? "#e74c3c" : m.up === false ? "#2ecc71" : "#aaa" }}>{m.price}</div>
+                        <div className="text-[11px] mt-0.5" style={{ color: m.up ? "#e74c3c" : m.up === false ? "#2ecc71" : "#888" }}>
+                          {m.up === true ? "▲" : m.up === false ? "▼" : ""}{m.change}({m.pct})
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* 盤後焦點個股標題 */}
+                <div className="px-4 pt-4 pb-2">
+                  <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">美股指數</span>
+                </div>
+                {/* 美股指數明細 */}
+                {(!usMarket?.indices?.length ? [] : usMarket.indices).map((m) => (
+                  <div key={m.label} className="flex items-center justify-between px-4 py-3.5 border-b border-[#1a1a1a]">
+                    <span className="text-sm text-gray-300">{m.label} &gt;</span>
+                    <div className="text-right">
+                      <span className="text-base font-bold tabular-nums mr-3" style={{ color: m.up ? "#e74c3c" : m.up === false ? "#2ecc71" : "#aaa" }}>{m.price}</span>
+                      <span className="text-sm" style={{ color: m.up ? "#e74c3c" : m.up === false ? "#2ecc71" : "#888" }}>
+                        {m.up === true ? "▼" : m.up === false ? "▼" : ""}{m.change}({m.pct})
+                      </span>
+                    </div>
                   </div>
-                ))
-              }
-            </div>
+                ))}
+                {!usMarket && <div className="text-center text-gray-600 py-10 text-sm">美股資料載入中...</div>}
+              </div>
+            )}
+
+            {/* ── 產業即時 ── */}
+            {marketTab === "產業即時" && (
+              <div className="pb-4">
+                <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+                  {(["漲幅", "跌幅"] as const).map((s) => (
+                    <button key={s} onClick={() => setSectorSort(s)}
+                      className={`px-4 py-1.5 rounded text-sm font-medium ${sectorSort === s ? "bg-[#e07000] text-white" : "bg-[#222] text-gray-400"}`}>{s}</button>
+                  ))}
+                </div>
+                {/* 產業排行標題 */}
+                <div className="px-4 mb-2">
+                  <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">產業排行</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 px-3">
+                  {sectors.length === 0
+                    ? [1,2,3,4,5,6].map((i) => <div key={i} className="bg-[#1a1a1a] rounded-xl p-3 animate-pulse h-20" />)
+                    : [...sectors]
+                      .sort((a, b) => {
+                        const ap = parseFloat(a.pct?.replace("%","") ?? "0");
+                        const bp = parseFloat(b.pct?.replace("%","") ?? "0");
+                        return sectorSort === "漲幅" ? bp - ap : ap - bp;
+                      })
+                      .slice(0, 6)
+                      .map((s) => {
+                        const pctNum = parseFloat(s.pct?.replace("%","") ?? "0");
+                        const isUp = s.up !== undefined ? s.up : pctNum >= 0;
+                        const color = isUp ? "#e74c3c" : "#2ecc71";
+                        return (
+                          <div key={s.name} className="bg-[#1a1a1a] rounded-xl p-3">
+                            <div className="text-[10px] text-gray-500 mb-1">產業</div>
+                            <div className="text-[13px] font-bold text-white leading-tight mb-1">{s.name}</div>
+                            <div className="text-[15px] font-bold" style={{ color }}>
+                              {isUp ? "▲" : "▼"}{Math.abs(pctNum).toFixed(2)}%
+                            </div>
+                          </div>
+                        );
+                      })
+                  }
+                </div>
+                {/* 資金流向 */}
+                <div className="px-4 pt-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">持股板塊分布</span>
+                  </div>
+                  {[...new Set(watchlistSectors)].length === 0
+                    ? <div className="text-gray-600 text-sm text-center py-4 bg-[#1a1a1a] rounded-xl">新增含板塊標籤的持股後顯示</div>
+                    : [...new Set(watchlistSectors)].map((s) => (
+                      <div key={s} className="flex items-center gap-2 py-2.5 border-b border-[#1a1a1a]">
+                        <span className="w-2 h-2 rounded-full bg-[#e07000]" />
+                        <span className="text-sm text-white">{s}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
           </div>
         )}
 
