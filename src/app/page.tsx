@@ -18,7 +18,7 @@ type Tab = "庫存股" | "K線圖" | "新聞";
 type BottomNav = "庫存股" | "自選股" | "選股" | "大盤" | "動向" | "K線";
 type SortKey = "name" | "todayPnl" | "change" | "totalPnl";
 interface MarketItem { label: string; symbol: string; price: string; change: string; pct: string; up: boolean | null; }
-interface SectorItem { name: string; pct: string; up?: boolean; }
+interface SectorItem { name: string; pct: string; up?: boolean | null; category?: string; }
 
 function useLocalStorage<T>(key: string, init: T) {
   const [val, setVal] = useState<T>(init);
@@ -286,18 +286,24 @@ export default function Home() {
             {marketTab === "台灣指數" && (
               <div className="pb-4">
                 {/* 3-box 指數 */}
-                <div className="grid grid-cols-3 gap-0 border-b border-[#222]">
+                <div className="grid grid-cols-3 divide-x divide-[#222] border-b border-[#222]">
                   {marketIndex.length === 0
-                    ? [1,2,3].map((i) => <div key={i} className="p-3 border-r border-[#222] last:border-0 animate-pulse"><div className="h-3 bg-[#222] rounded mb-2 w-16"/><div className="h-5 bg-[#222] rounded"/></div>)
-                    : marketIndex.slice(0,3).map((m, i) => (
-                      <div key={m.name} className={`p-3 ${i === 2 ? "border-l-2 border-[#e07000] bg-[#1a1505]" : "border-r border-[#222]"}`}>
-                        <div className="text-[10px] text-gray-500 mb-1">{m.name}</div>
-                        <div className="text-[16px] font-bold tabular-nums" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</div>
-                        <div className="text-[11px] mt-0.5" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>
-                          {m.up ? "▲" : "▼"}{m.change}({m.pct})
+                    ? [1,2,3].map((i) => (
+                        <div key={i} className="p-3 animate-pulse">
+                          <div className="h-2.5 bg-[#252525] rounded mb-2 w-14"/>
+                          <div className="h-5 bg-[#252525] rounded mb-1.5 w-20"/>
+                          <div className="h-2.5 bg-[#252525] rounded w-16"/>
                         </div>
-                      </div>
-                    ))
+                      ))
+                    : marketIndex.slice(0,3).map((m, i) => (
+                        <div key={m.name} className={`p-3 ${i === 0 ? "bg-[#1a1505]" : ""}`}>
+                          <div className="text-[10px] text-gray-500 mb-1 truncate">{m.name}</div>
+                          <div className="text-[15px] font-bold tabular-nums leading-tight" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</div>
+                          <div className="text-[10px] mt-1 tabular-nums" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>
+                            {m.up ? "▲" : "▼"}{m.change}<br/><span className="opacity-80">({m.pct})</span>
+                          </div>
+                        </div>
+                      ))
                   }
                 </div>
                 {/* 焦點快訊 */}
@@ -306,28 +312,34 @@ export default function Home() {
                     <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">焦點快訊</span>
                     <span className="text-xs text-[#e07000]">更多 &gt;</span>
                   </div>
-                  {news.slice(0, 3).map((n, i) => (
-                    <div key={n.id} className="flex items-start gap-3 py-2.5 border-b border-[#1a1a1a]">
-                      <span className="text-[#e07000] text-sm font-bold w-6 flex-shrink-0">{String(i+1).padStart(2,"0")}</span>
-                      <span className="text-sm text-white leading-snug flex-1">{n.title}</span>
-                      <span className="text-[10px] text-gray-500 whitespace-nowrap">{n.source?.split("·")[1]?.trim() ?? ""}</span>
-                    </div>
-                  ))}
+                  {news.length === 0
+                    ? [1,2,3].map((i) => <div key={i} className="h-10 bg-[#1a1a1a] rounded animate-pulse mb-2" />)
+                    : news.slice(0, 3).map((n, i) => (
+                        <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-start gap-3 py-2.5 border-b border-[#1a1a1a] active:bg-[#1a1a1a]">
+                          <span className="text-[#e07000] text-sm font-bold w-6 flex-shrink-0 mt-0.5">{String(i+1).padStart(2,"0")}</span>
+                          <span className="text-sm text-white leading-snug flex-1">{n.title}</span>
+                        </a>
+                      ))
+                  }
                 </div>
                 {/* 指數明細 */}
+                {marketIndex.length > 0 && (
                 <div className="px-4 pt-2">
+                  <div className="text-xs text-gray-600 mb-2 pl-1">指數明細</div>
                   {marketIndex.slice(1).map((m) => (
-                    <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#1a1a1a]">
-                      <span className="text-sm text-gray-300">{m.name} &gt;</span>
-                      <div className="text-right">
-                        <span className="text-base font-bold tabular-nums mr-3" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</span>
-                        <span className="text-sm" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>
-                          {m.up ? "▲" : "▼"}{m.change}({m.pct})
+                    <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#181818]">
+                      <span className="text-sm text-gray-400">{m.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-bold tabular-nums" style={{ color: m.up ? "#e74c3c" : "#2ecc71" }}>{m.value}</span>
+                        <span className="text-xs tabular-nums px-2 py-0.5 rounded" style={{ color: m.up ? "#e74c3c" : "#2ecc71", backgroundColor: m.up ? "#2a1010" : "#0d2010" }}>
+                          {m.up ? "▲" : "▼"}{m.pct}
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             )}
 
@@ -373,57 +385,59 @@ export default function Home() {
             {/* ── 產業即時 ── */}
             {marketTab === "產業即時" && (
               <div className="pb-4">
-                <div className="flex items-center gap-2 px-4 pt-4 pb-3">
-                  {(["漲幅", "跌幅"] as const).map((s) => (
-                    <button key={s} onClick={() => setSectorSort(s)}
-                      className={`px-4 py-1.5 rounded text-sm font-medium ${sectorSort === s ? "bg-[#e07000] text-white" : "bg-[#222] text-gray-400"}`}>{s}</button>
-                  ))}
-                </div>
-                {/* 產業排行標題 */}
-                <div className="px-4 mb-2">
+                {/* Sort + 標題 */}
+                <div className="flex items-center justify-between px-4 pt-4 pb-3">
                   <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">產業排行</span>
+                  <div className="flex gap-1.5">
+                    {(["漲幅", "跌幅"] as const).map((s) => (
+                      <button key={s} onClick={() => setSectorSort(s)}
+                        className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${sectorSort === s ? "bg-[#e07000] text-white" : "bg-[#222] text-gray-400"}`}>{s}</button>
+                    ))}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 px-3">
                   {sectors.length === 0
-                    ? [1,2,3,4,5,6].map((i) => <div key={i} className="bg-[#1a1a1a] rounded-xl p-3 animate-pulse h-20" />)
+                    ? [1,2,3,4,5,6].map((i) => <div key={i} className="bg-[#1a1a1a] rounded-xl p-3 animate-pulse h-24" />)
                     : [...sectors]
                       .sort((a, b) => {
-                        const ap = parseFloat(a.pct?.replace("%","") ?? "0");
-                        const bp = parseFloat(b.pct?.replace("%","") ?? "0");
+                        const ap = parseFloat(a.pct?.replace(/[+%]/g, "") ?? "0");
+                        const bp = parseFloat(b.pct?.replace(/[+%]/g, "") ?? "0");
                         return sectorSort === "漲幅" ? bp - ap : ap - bp;
                       })
                       .slice(0, 6)
                       .map((s) => {
-                        const pctNum = parseFloat(s.pct?.replace("%","") ?? "0");
-                        const isUp = s.up !== undefined ? s.up : pctNum >= 0;
-                        const color = isUp ? "#e74c3c" : "#2ecc71";
+                        const pctNum = parseFloat(s.pct?.replace(/[+%]/g, "") ?? "0");
+                        const isUp = s.up != null ? s.up : pctNum >= 0;
+                        const noData = s.pct === "—";
+                        const color = noData ? "#555" : isUp ? "#e74c3c" : "#2ecc71";
                         return (
-                          <div key={s.name} className="bg-[#1a1a1a] rounded-xl p-3">
-                            <div className="text-[10px] text-gray-500 mb-1">產業</div>
-                            <div className="text-[13px] font-bold text-white leading-tight mb-1">{s.name}</div>
-                            <div className="text-[15px] font-bold" style={{ color }}>
-                              {isUp ? "▲" : "▼"}{Math.abs(pctNum).toFixed(2)}%
+                          <div key={s.name} className="bg-[#1a1a1a] rounded-xl p-3 border border-[#252525]">
+                            <div className="text-[9px] text-gray-600 mb-1 font-medium tracking-wide">{s.category ?? "產業"}</div>
+                            <div className="text-[12px] font-bold text-white leading-tight mb-2">{s.name}</div>
+                            <div className="text-[17px] font-black tabular-nums leading-none" style={{ color }}>
+                              {noData ? "—" : `${isUp ? "▲" : "▼"}${Math.abs(pctNum).toFixed(2)}%`}
                             </div>
                           </div>
                         );
                       })
                   }
                 </div>
-                {/* 資金流向 */}
-                <div className="px-4 pt-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">持股板塊分布</span>
+                {/* 持股板塊 */}
+                {[...new Set(watchlistSectors)].length > 0 && (
+                  <div className="px-4 pt-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">持股板塊分布</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[...new Set(watchlistSectors)].map((s) => (
+                        <span key={s} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a1a1a] rounded-full text-xs text-gray-300 border border-[#2a2a2a]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#e07000]" />
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  {[...new Set(watchlistSectors)].length === 0
-                    ? <div className="text-gray-600 text-sm text-center py-4 bg-[#1a1a1a] rounded-xl">新增含板塊標籤的持股後顯示</div>
-                    : [...new Set(watchlistSectors)].map((s) => (
-                      <div key={s} className="flex items-center gap-2 py-2.5 border-b border-[#1a1a1a]">
-                        <span className="w-2 h-2 rounded-full bg-[#e07000]" />
-                        <span className="text-sm text-white">{s}</span>
-                      </div>
-                    ))
-                  }
-                </div>
+                )}
               </div>
             )}
           </div>
