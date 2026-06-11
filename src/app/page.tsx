@@ -178,6 +178,11 @@ export default function Home() {
   const totalProfit = profits.reduce((s, r) => s + r.totalPnl, 0);
   const totalLoss = Math.abs(losses.reduce((s, r) => s + r.totalPnl, 0));
 
+  const pricedRows = rows.filter((r) => r.price > 0);
+  const upRows = pricedRows.filter((r) => r.changePercent > 0);
+  const downRows = pricedRows.filter((r) => r.changePercent < 0);
+  const upPct = pricedRows.length > 0 ? upRows.length / pricedRows.length * 100 : 0;
+
   const handleSort = (k: SortKey) => { if (sortKey === k) setSortAsc(!sortAsc); else { setSortKey(k); setSortAsc(false); } };
 
   const handleAdd = () => {
@@ -488,57 +493,101 @@ export default function Home() {
         {/* ── 庫存股 ── */}
         {activeBottom !== "大盤" && activeBottom !== "自選股" && activeBottom !== "選股" && activeTab === "庫存股" && (
           <div>
-            {/* Summary card */}
-            {pnlRows.length > 0 && (
+            {/* Summary card - always show */}
+            {rows.length > 0 && (
               <div className="mx-3 mt-3 bg-[#1a1a1a] rounded-xl p-4 grid grid-cols-3 gap-1">
-                <div>
-                  <div className="text-[10px] text-gray-500">今日損益</div>
-                  <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: numColor(todayPnl) }}>
-                    {todayPnl >= 0 ? "+" : ""}{fmtNum(todayPnl)}
-                  </div>
-                  <div className="text-[11px]" style={{ color: numColor(todayPnl) }}>{fmtPct(todayPnlPct)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500">累積損益</div>
-                  <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: numColor(totalPnl) }}>
-                    {totalPnl >= 0 ? "+" : ""}{fmtNum(totalPnl)}
-                  </div>
-                  <div className="text-[11px]" style={{ color: numColor(totalPnl) }}>{fmtPct(totalPnlPct)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-gray-500">股票市值</div>
-                  <div className="text-[22px] font-bold tabular-nums leading-tight text-white">{fmtNum(totalMV)}</div>
-                  <div className="text-[11px] text-gray-500">成本 {fmtNum(totalCost)}</div>
-                </div>
+                {pnlRows.length > 0 ? (
+                  <>
+                    <div>
+                      <div className="text-[10px] text-gray-500">今日損益</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: numColor(todayPnl) }}>
+                        {todayPnl >= 0 ? "+" : ""}{fmtNum(todayPnl)}
+                      </div>
+                      <div className="text-[11px]" style={{ color: numColor(todayPnl) }}>{fmtPct(todayPnlPct)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500">累積損益</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: numColor(totalPnl) }}>
+                        {totalPnl >= 0 ? "+" : ""}{fmtNum(totalPnl)}
+                      </div>
+                      <div className="text-[11px]" style={{ color: numColor(totalPnl) }}>{fmtPct(totalPnlPct)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500">股票市值</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight text-white">{fmtNum(totalMV)}</div>
+                      <div className="text-[11px] text-gray-500">成本 {fmtNum(totalCost)}</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-[10px] text-gray-500">持股數</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight text-white">{rows.length}</div>
+                      <div className="text-[11px] text-gray-500">自選股</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500">今日上漲</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: "#e74c3c" }}>{upRows.length}</div>
+                      <div className="text-[11px]" style={{ color: "#e74c3c" }}>檔</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-500">今日下跌</div>
+                      <div className="text-[22px] font-bold tabular-nums leading-tight" style={{ color: "#2ecc71" }}>{downRows.length}</div>
+                      <div className="text-[11px]" style={{ color: "#2ecc71" }}>檔</div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* Pie + stats */}
-            {pnlRows.length > 0 && (
+            {/* Pie + stats - always show when price data available */}
+            {pricedRows.length > 0 && (
               <div className="mx-3 mt-2 bg-[#1a1a1a] rounded-xl p-4 flex items-center gap-4">
                 <div className="relative flex-shrink-0">
-                  <PieChart profitPct={profitPct} />
+                  <PieChart profitPct={pnlRows.length > 0 ? profitPct : upPct} />
                   <div className="absolute inset-0 flex flex-col items-end justify-center pr-0 pointer-events-none" style={{ right: "-28px" }}>
-                    <div className="text-[11px] font-bold" style={{ color: "#e74c3c" }}>{Math.round(profitPct)}%</div>
-                    <div className="text-[11px] font-bold" style={{ color: "#2ecc71" }}>{Math.round(100 - profitPct)}%</div>
+                    <div className="text-[11px] font-bold" style={{ color: "#e74c3c" }}>{Math.round(pnlRows.length > 0 ? profitPct : upPct)}%</div>
+                    <div className="text-[11px] font-bold" style={{ color: "#2ecc71" }}>{Math.round(100 - (pnlRows.length > 0 ? profitPct : upPct))}%</div>
                   </div>
                 </div>
                 <div className="flex-1 ml-6">
-                  <div className="text-[10px] text-gray-500 mb-2 flex items-center gap-1">
-                    <span style={{ color: "#e74c3c" }}>■</span>
-                    <span style={{ color: "#2ecc71" }}>■</span>
-                    盈虧市值估比
-                  </div>
-                  <div className="space-y-2">
-                    <div className="pl-2 border-l-2 border-[#e74c3c]">
-                      <div className="text-[11px] text-gray-400">獲利檔數：<span style={{ color: "#e74c3c" }} className="font-medium">{profits.length} 檔</span></div>
-                      <div className="text-[11px] text-gray-400">獲利金額：<span style={{ color: "#e74c3c" }} className="font-medium">{fmtNum(totalProfit)} 元</span></div>
-                    </div>
-                    <div className="pl-2 border-l-2 border-[#2ecc71]">
-                      <div className="text-[11px] text-gray-400">虧損檔數：<span style={{ color: "#2ecc71" }} className="font-medium">{losses.length} 檔</span></div>
-                      <div className="text-[11px] text-gray-400">虧損金額：<span style={{ color: "#2ecc71" }} className="font-medium">{fmtNum(totalLoss)} 元</span></div>
-                    </div>
-                  </div>
+                  {pnlRows.length > 0 ? (
+                    <>
+                      <div className="text-[10px] text-gray-500 mb-2 flex items-center gap-1">
+                        <span style={{ color: "#e74c3c" }}>■</span>
+                        <span style={{ color: "#2ecc71" }}>■</span>
+                        盈虧市值估比
+                      </div>
+                      <div className="space-y-2">
+                        <div className="pl-2 border-l-2 border-[#e74c3c]">
+                          <div className="text-[11px] text-gray-400">獲利檔數：<span style={{ color: "#e74c3c" }} className="font-medium">{profits.length} 檔</span></div>
+                          <div className="text-[11px] text-gray-400">獲利金額：<span style={{ color: "#e74c3c" }} className="font-medium">{fmtNum(totalProfit)} 元</span></div>
+                        </div>
+                        <div className="pl-2 border-l-2 border-[#2ecc71]">
+                          <div className="text-[11px] text-gray-400">虧損檔數：<span style={{ color: "#2ecc71" }} className="font-medium">{losses.length} 檔</span></div>
+                          <div className="text-[11px] text-gray-400">虧損金額：<span style={{ color: "#2ecc71" }} className="font-medium">{fmtNum(totalLoss)} 元</span></div>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[10px] text-gray-500 mb-2 flex items-center gap-1">
+                        <span style={{ color: "#e74c3c" }}>■</span>
+                        <span style={{ color: "#2ecc71" }}>■</span>
+                        今日即時漲跌
+                      </div>
+                      <div className="space-y-2">
+                        <div className="pl-2 border-l-2 border-[#e74c3c]">
+                          <div className="text-[11px] text-gray-400">上漲：<span style={{ color: "#e74c3c" }} className="font-medium">{upRows.length} 檔</span></div>
+                          <div className="text-[11px] text-gray-400">最大漲幅：<span style={{ color: "#e74c3c" }} className="font-medium">{upRows.length > 0 ? fmtPct(Math.max(...upRows.map((r) => r.changePercent))) : "—"}</span></div>
+                        </div>
+                        <div className="pl-2 border-l-2 border-[#2ecc71]">
+                          <div className="text-[11px] text-gray-400">下跌：<span style={{ color: "#2ecc71" }} className="font-medium">{downRows.length} 檔</span></div>
+                          <div className="text-[11px] text-gray-400">最大跌幅：<span style={{ color: "#2ecc71" }} className="font-medium">{downRows.length > 0 ? fmtPct(Math.min(...downRows.map((r) => r.changePercent))) : "—"}</span></div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
