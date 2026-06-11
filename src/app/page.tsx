@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Bell, RefreshCw, TrendingUp, Globe, Loader2, X, Search, BarChart2, Layers, Activity, Radio } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { zhTW } from "date-fns/locale";
 import TradingViewChart from "@/components/TradingViewChart";
 import NewsCard from "@/components/NewsCard";
 import { StockQuote, WatchlistItem, NewsItem } from "@/types/stock";
@@ -626,12 +628,38 @@ export default function Home() {
 
         {/* ── 新聞/動向 ── */}
         {activeBottom !== "大盤" && activeBottom !== "自選股" && activeBottom !== "選股" && activeTab === "新聞" && (
-          <div className="p-3">
-            <p className="text-[11px] text-gray-500 mb-3">⚡ 影響你自選股板塊的新聞高亮</p>
-            {news.length === 0
-              ? <div className="text-center text-gray-600 py-12">新聞載入中...</div>
-              : <div className="grid gap-3">{news.map((n) => <NewsCard key={n.id} news={n} watchlistSectors={watchlistSectors} />)}</div>}
-          </div>
+          activeBottom === "動向" ? (
+            <div className="pb-4">
+              <div className="px-4 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-white border-l-4 border-[#e07000] pl-2">動向快訊</span>
+                  <span className="text-xs text-[#e07000]">全部</span>
+                </div>
+                {news.length === 0
+                  ? <div className="text-center text-gray-600 py-12">新聞載入中...</div>
+                  : news.map((n, i) => {
+                      let timeAgo = "";
+                      try { timeAgo = formatDistanceToNow(new Date(n.publishedAt), { addSuffix: true, locale: zhTW }); } catch { /**/ }
+                      return (
+                        <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-start gap-3 py-3 border-b border-[#1a1a1a] active:bg-[#1a1a1a]">
+                          <span className="text-[#e07000] text-sm font-bold w-6 flex-shrink-0 mt-0.5">{String(i + 1).padStart(2, "0")}</span>
+                          <span className="text-sm text-white leading-snug flex-1">{n.title}</span>
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap mt-0.5">{timeAgo}</span>
+                        </a>
+                      );
+                    })
+                }
+              </div>
+            </div>
+          ) : (
+            <div className="p-3">
+              <p className="text-[11px] text-gray-500 mb-3">⚡ 影響你自選股板塊的新聞高亮</p>
+              {news.length === 0
+                ? <div className="text-center text-gray-600 py-12">新聞載入中...</div>
+                : <div className="grid gap-3">{news.map((n) => <NewsCard key={n.id} news={n} watchlistSectors={watchlistSectors} />)}</div>}
+            </div>
+          )
         )}
       </main>
 
