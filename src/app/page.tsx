@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Bell, RefreshCw, TrendingUp, Globe, Loader2, X, Search, BarChart2, Layers, Activity, Radio } from "lucide-react";
 import TradingViewChart from "@/components/TradingViewChart";
 import NewsCard from "@/components/NewsCard";
@@ -13,6 +13,7 @@ const DEFAULT_WATCHLIST: WatchlistItem[] = [
 ];
 
 type Tab = "庫存股" | "K線圖" | "新聞";
+type BottomNav = "庫存股" | "自選股" | "選股" | "大盤" | "動向" | "K線";
 type SortKey = "name" | "todayPnl" | "change" | "totalPnl";
 
 function useLocalStorage<T>(key: string, init: T) {
@@ -62,7 +63,9 @@ export default function Home() {
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [news, setNews] = useState<NewsItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("庫存股");
+  const [activeBottom, setActiveBottom] = useState<BottomNav>("庫存股");
   const [selectedSymbol, setSelectedSymbol] = useState("2330");
+  const [marketIndex, setMarketIndex] = useState<{ name: string; value: string; change: string; pct: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [addSymbol, setAddSymbol] = useState("");
@@ -91,7 +94,23 @@ export default function Home() {
     try { const res = await fetch("/api/news"); if (res.ok) setNews(await res.json()); } catch { /**/ }
   }, []);
 
-  useEffect(() => { fetchQuotes(); fetchNews(); }, [fetchQuotes, fetchNews]);
+  const fetchMarket = useCallback(async () => {
+    try {
+      const res = await fetch("https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX");
+      if (!res.ok) return;
+      const data = await res.json();
+      const targets = ["加權股價指數", "未含金融保險股指數", "電子類指數", "金融保險類指數"];
+      const rows = targets.map((t) => {
+        const row = data.find((d: Record<string, string>) => d["指數名稱"]?.includes(t.replace("加權股價", "").trim()) || d["指數名稱"] === t);
+        if (!row) return null;
+        const pct = parseFloat(row["漲跌百分比"] || "0");
+        return { name: row["指數名稱"], value: row["收盤指數"] || row["最新指數"] || "—", change: row["漲跌點數"] || "—", pct: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%` };
+      }).filter(Boolean) as { name: string; value: string; change: string; pct: string }[];
+      setMarketIndex(rows);
+    } catch { /**/ }
+  }, []);
+
+  useEffect(() => { fetchQuotes(); fetchNews(); fetchMarket(); }, [fetchQuotes, fetchNews, fetchMarket]);
   useEffect(() => {
     intervalRef.current = setInterval(fetchQuotes, 10000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -232,8 +251,109 @@ export default function Home() {
       {/* ── Main ── */}
       <main className="flex-1 max-w-2xl w-full mx-auto pb-20">
 
+        {/* ── 大盤 ── */}
+        {activeBottom === "大盤" && (
+          <div className="p-3 space-y-3">
+            <div className="bg-[#1a1a1a] rounded-xl p-4">
+              <div className="text-xs text-gray-400 mb-3 flex items-center gap-1"><Globe size={12} /> 台股大盤指數</div>
+              {marketIndex.length === 0
+                ? <div className="text-center text-gray-600 py-8">指數載入中...</div>
+                : marketIndex.map((m) => {
+                  const up = m.pct.startsWith("+");
+                  const color = up ? "#e74c3c" : "#2ecc71";
+                  return (
+                    <div key={m.name} className="flex items-center justify-between py-3 border-b border-[#222] last:border-0">
+                      <div>
+                        <div className="text-sm font-medium text-white">{m.name}</div>
+                        <div className="text-[11px] text-gray-500">漲跌 {m.change}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-white tabular-nums">{m.value}</div>
+                        <div className="inline-block text-[11px] font-bold px-2 py-0.5 rounded text-white" style={{ backgroundColor: color }}>{m.pct}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+            <div className="bg-[#1a1a1a] rounded-xl p-4">
+              <div className="text-xs text-gray-400 mb-3">📊 持股板塊分布</div>
+              {watchlistSectors.length === 0
+                ? <div className="text-gray-600 text-sm text-center py-4">新增含板塊標籤的持股後顯示</div>
+                : [...new Set(watchlistSectors)].map((s) => (
+                  <div key={s} className="flex items-center gap-2 py-2 border-b border-[#222] last:border-0">
+                    <span className="w-2 h-2 rounded-full bg-[#e07000]" />
+                    <span className="text-sm text-white">{s}</span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ── 自選股 ── */}
+        {activeBottom === "自選股" && (
+          <div className="p-3">
+            <div className="text-xs text-gray-500 mb-3">自選觀察清單（點擊查看 K 線）</div>
+            {watchlist.map((w) => {
+              const q = quotes[w.symbol];
+              const cp = q?.changePercent ?? 0;
+              return (
+                <div key={w.symbol}
+                  className="flex items-center justify-between bg-[#1a1a1a] rounded-xl px-4 py-3 mb-2 cursor-pointer active:bg-[#222]"
+                  onClick={() => { setSelectedSymbol(w.symbol); setActiveBottom("K線"); setActiveTab("K線圖"); }}>
+                  <div>
+                    <div className="text-sm font-bold text-white">{w.name}</div>
+                    <div className="text-[11px] text-gray-500">{w.symbol}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-base font-bold text-white tabular-nums">{q?.price?.toFixed(1) ?? "—"}</div>
+                    {q?.price ? (
+                      <div className="inline-block text-[11px] font-bold px-2 py-0.5 rounded text-white"
+                        style={{ backgroundColor: cp >= 0 ? "#e74c3c" : "#2ecc71" }}>
+                        {fmtPct(cp)}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            <button onClick={() => setShowAdd(true)} className="w-full py-3 rounded-xl bg-[#1a1a1a] text-[#e07000] text-sm font-medium border border-[#333] mt-1">
+              + 新增自選股
+            </button>
+          </div>
+        )}
+
+        {/* ── 選股 ── */}
+        {activeBottom === "選股" && (
+          <div className="p-3">
+            <div className="bg-[#1a1a1a] rounded-xl p-5 text-center">
+              <Layers size={32} className="text-gray-600 mx-auto mb-3" />
+              <div className="text-sm text-gray-400 mb-1">選股功能開發中</div>
+              <div className="text-[11px] text-gray-600">即將支援：條件篩選、主力籌碼、外資動向</div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {[["AI/半導體", "2330,2454,3711"], ["航運", "2603,2609,2615"], ["金融", "2881,2882,2891"]].map(([sector, syms]) => (
+                <div key={sector} className="bg-[#1a1a1a] rounded-xl p-4">
+                  <div className="text-xs text-gray-400 mb-2">{sector}</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {syms.split(",").map((s) => (
+                      <button key={s} onClick={() => {
+                        if (!watchlist.find((w) => w.symbol === s)) {
+                          setWatchlist((p) => [...p, { symbol: s, name: s }]);
+                        }
+                        setSelectedSymbol(s); setActiveBottom("K線"); setActiveTab("K線圖");
+                      }} className="px-3 py-1.5 bg-[#222] rounded-lg text-xs text-gray-300 active:bg-[#333]">{s}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── 庫存股 ── */}
-        {activeTab === "庫存股" && (
+        {activeBottom !== "大盤" && activeBottom !== "自選股" && activeBottom !== "選股" && activeTab === "庫存股" && (
           <div>
             {/* Summary card */}
             {pnlRows.length > 0 && (
@@ -355,7 +475,7 @@ export default function Home() {
         )}
 
         {/* ── K線圖 ── */}
-        {activeTab === "K線圖" && (
+        {activeBottom !== "大盤" && activeBottom !== "自選股" && activeBottom !== "選股" && activeTab === "K線圖" && (
           <div className="p-3">
             <div className="flex gap-2 mb-3 flex-wrap">
               {watchlist.map((item) => (
@@ -373,8 +493,8 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── 新聞 ── */}
-        {activeTab === "新聞" && (
+        {/* ── 新聞/動向 ── */}
+        {activeBottom !== "大盤" && activeBottom !== "自選股" && activeBottom !== "選股" && activeTab === "新聞" && (
           <div className="p-3">
             <p className="text-[11px] text-gray-500 mb-3">⚡ 影響你自選股板塊的新聞高亮</p>
             {news.length === 0
@@ -386,20 +506,22 @@ export default function Home() {
 
       {/* ── Bottom nav ── */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#111] border-t border-[#222] flex">
-        {[
-          { icon: <BarChart2 size={20} />, label: "庫存股", tab: "庫存股" as Tab },
-          { icon: <Activity size={20} />, label: "自選股", tab: "庫存股" as Tab },
-          { icon: <Layers size={20} />, label: "選股", tab: "庫存股" as Tab },
-          { icon: <Globe size={20} />, label: "大盤", tab: "新聞" as Tab },
-          { icon: <Radio size={20} />, label: "動向", tab: "新聞" as Tab },
-          { icon: <TrendingUp size={20} />, label: "K線", tab: "K線圖" as Tab },
-        ].map(({ icon, label, tab }) => (
-          <button key={label} onClick={() => setActiveTab(tab)}
+        {([
+          { icon: <BarChart2 size={20} />, label: "庫存股" as BottomNav },
+          { icon: <Activity size={20} />, label: "自選股" as BottomNav },
+          { icon: <Layers size={20} />, label: "選股" as BottomNav },
+          { icon: <Globe size={20} />, label: "大盤" as BottomNav },
+          { icon: <Radio size={20} />, label: "動向" as BottomNav },
+          { icon: <TrendingUp size={20} />, label: "K線" as BottomNav },
+        ] as { icon: React.ReactNode; label: BottomNav }[]).map(({ icon, label }) => (
+          <button key={label} onClick={() => {
+            setActiveBottom(label);
+            if (label === "K線") setActiveTab("K線圖");
+            else if (label === "動向") setActiveTab("新聞");
+            else setActiveTab("庫存股");
+          }}
             className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors ${
-              (label === "庫存股" && activeTab === "庫存股") ||
-              (label === "K線" && activeTab === "K線圖") ||
-              (label === "大盤" && activeTab === "新聞")
-                ? "text-[#e07000]" : "text-gray-600"
+              activeBottom === label ? "text-[#e07000]" : "text-gray-600"
             }`}>
             {icon}
             <span className="text-[9px]">{label}</span>
